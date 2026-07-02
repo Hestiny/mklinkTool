@@ -24,6 +24,12 @@ npm install
 npm start
 ```
 
+如果网不行 使用淘宝镜像
+
+```bash
+npm.cmd install
+```
+
 ### 打包
 
 ```bash
