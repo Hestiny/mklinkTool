@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>MklinkTool - 符号链接管理工具</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- 管理员权限提示 -->
+  <div id="adminBanner" class="admin-banner hidden">
+    <span class="warning-icon">⚠️</span>
+    <span>当前未以管理员身份运行，创建符号链接功能可能无法使用。请以管理员身份重新启动程序。</span>
+    <button id="restartAdminBtn" class="btn-restart">了解</button>
+  </div>
+
+  <!-- 顶部工具栏 -->
+  <header class="toolbar">
+    <div class="toolbar-left">
+      <h1 class="app-title">
+        <span class="logo">🔗</span> MklinkTool
+      </h1>
+      <span class="subtitle">符号链接管理工具</span>
+    </div>
+    <div class="toolbar-right">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜索链接名称、路径或目标...">
+      </div>
+      <button id="refreshBtn" class="btn btn-icon" title="刷新">🔄 刷新</button>
+      <button id="createBtn" class="btn btn-primary" title="创建新链接">➕ 新建链接</button>
+    </div>
+  </header>
+
+  <!-- 状态栏 -->
+  <div class="status-bar">
+    <span id="linkCount">共 0 个链接</span>
+    <span id="scanStatus" class="scan-status"></span>
+  </div>
+
+  <!-- 链接列表 -->
+  <main class="main-content">
+    <div id="linkList" class="link-list">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">📭</div>
+        <p>暂无符号链接</p>
+        <p class="empty-hint">点击"新建链接"创建您的第一个符号链接</p>
+      </div>
+    </div>
+    <div id="loadingState" class="loading-state hidden">
+      <div class="spinner"></div>
+      <p>正在扫描系统中的符号链接...</p>
+    </div>
+  </main>
+
+  <!-- 创建/修改链接对话框 -->
+  <div id="linkDialog" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">新建符号链接</h2>
+        <button class="modal-close" id="closeModalBtn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>目标路径 <span class="required">*</span></label>
+          <div class="input-with-btn">
+            <input type="text" id="targetPathInput" placeholder="选择或输入目标文件/文件夹路径">
+            <button class="btn btn-small" id="selectTargetBtn">浏览...</button>
+          </div>
+          <span class="form-hint">符号链接指向的真实文件或目录</span>
+        </div>
+
+        <div class="form-group">
+          <label>链接类型 <span class="required">*</span></label>
+          <select id="linkTypeSelect">
+            <option value="symbolic">符号链接 (Symbolic Link) - 自动判断文件/目录</option>
+            <option value="junction">目录联接 (Junction) - 仅限目录，无需管理员权限</option>
+            <option value="hardlink">硬链接 (Hard Link) - 仅限文件，同盘符</option>
+          </select>
+          <span class="form-hint" id="linkTypeHint"></span>
+        </div>
+
+        <div class="form-group">
+          <label>链接位置 <span class="required">*</span></label>
+          <div class="input-with-btn">
+            <input type="text" id="linkDirInput" placeholder="选择链接所在的文件夹">
+            <button class="btn btn-small" id="selectLinkDirBtn">浏览...</button>
+          </div>
+          <span class="form-hint">链接文件将创建在此目录下</span>
+        </div>
+
+        <div class="form-group">
+          <label>链接名称 <span class="required">*</span></label>
+          <input type="text" id="linkNameInput" placeholder="输入链接的名称">
+          <span class="form-hint">例如: MyLink 或 MyLink.txt</span>
+        </div>
+
+        <div class="form-group" id="targetPreviewGroup" style="display:none;">
+          <label>预览</label>
+          <div class="preview-box" id="previewBox"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-default" id="cancelDialogBtn">取消</button>
+        <button class="btn btn-primary" id="confirmDialogBtn">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认对话框 -->
+  <div id="confirmDialog" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2 id="confirmTitle">确认</h2>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-default" id="confirmCancelBtn">取消</button>
+        <button class="btn btn-danger" id="confirmOkBtn">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 消息提示 -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
