@@ -29,14 +29,130 @@ function createWindow() {
   }
 }
 
-// 检查是否具有管理员权限
+// 检查是否具有管理员权限（使用更可靠的多种检测方式）
 function checkAdminRights() {
+  // 方法1: 使用 PowerShell 直接查询当前用户是否是管理员
+  try {
+    const output = execSync(
+      'powershell -Command "([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"',
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
+    );
+    if (output.trim().toLowerCase() === 'true') {
+      return true;
+    }
+  } catch (e) {
+    // PowerShell 方法失败，继续尝试其他方法
+  }
+
+  // 方法2: 尝试 net session（备用）
   try {
     execSync('net session', { stdio: 'ignore' });
     return true;
   } catch (e) {
+    // net session 失败
+  }
+
+  // 方法3: 尝试写入受保护的目录（如 C:\Windows）
+  try {
+    const testPath = path.join(process.env.SystemRoot || 'C:\\Windows', '_mklinktool_admin_test_');
+    fs.writeFileSync(testPath, 'test');
+    fs.unlinkSync(testPath);
+    return true;
+  } catch (e) {
     return false;
   }
+}
+
+// 判断路径是否属于系统默认目录
+function isSystemPath(filePath) {
+  const normalized = path.resolve(filePath).toLowerCase();
+  const dirName = path.basename(normalized).toLowerCase();
+  const systemRoot = (process.env.SystemRoot || 'C:\\Windows').toLowerCase();
+  const programData = (process.env.ProgramData || 'C:\\ProgramData').toLowerCase();
+  const allUsersProfile = (process.env.ALLUSERSPROFILE || 'C:\\ProgramData').toLowerCase();
+  const publicProfile = (process.env.PUBLIC || 'C:\\Users\\Public').toLowerCase();
+
+  // Windows 用户配置文件下默认存在的系统 junction 名称（中英文）
+  const systemDefaultJunctions = new Set([
+    'application data', 'applicationdata', 'cookies', 'local settings', 'localsettings',
+    'nethood', 'network', 'printhood', 'printer', 'recent', 'sendto', 'start menu', 'startmenu',
+    'templates', '模板', '开始菜单', '发送到', '最近访问', '打印机', '网络',
+    '我的文档', '我的图片', '我的音乐', '我的视频', '收藏夹', '我的下载', '下载',
+    '链接', '保存的游戏', '搜索', '联系人', '文档', '图片', '音乐', '视频',
+    'cookies', '历史', 'recent places', '已保存的游戏', 'searches', 'history',
+    'appdata', '应用程序数据', '临时文件', 'temporary files',
+    'documents and settings', 'all users', 'default user', 'defaultuser',
+    'my documents', 'my pictures', 'my music', 'my videos', 'my downloads', 'favorites',
+    'desktop', '我的桌面'
+  ]);
+
+  // Windows 系统默认 junction 名称命中
+  if (systemDefaultJunctions.has(dirName)) {
+    return true;
+  }
+
+  // 用户主目录下特定名称的 junction 视为系统默认
+  const parentDir = path.dirname(normalized).toLowerCase();
+  const userProfile = (process.env.USERPROFILE || os.homedir()).toLowerCase();
+  if (parentDir === userProfile && systemDefaultJunctions.has(dirName)) {
+    return true;
+  }
+
+  // 系统目录列表
+  const systemPaths = [
+    systemRoot,
+    systemRoot + '\\system32',
+    systemRoot + '\\syswow64',
+    systemRoot + '\\winsxs',
+    systemRoot + '\\assembly',
+    systemRoot + '\\boot',
+    systemRoot + '\\inf',
+    systemRoot + '\\installer',
+    systemRoot + '\\fonts',
+    systemRoot + '\\resources',
+    systemRoot + '\\servicing',
+    systemRoot + '\\apppatch',
+    systemRoot + '\\csc',
+    systemRoot + '\\diagnostics',
+    systemRoot + '\\globalization',
+    systemRoot + '\\help',
+    systemRoot + '\\l2schemas',
+    systemRoot + '\\livekernelreports',
+    systemRoot + '\\logs',
+    systemRoot + '\\media',
+    systemRoot + '\\microsoft.net',
+    systemRoot + '\\performance',
+    systemRoot + '\\policies',
+    systemRoot + '\\prefetch',
+    systemRoot + '\\registration',
+    systemRoot + '\\schemas',
+    systemRoot + '\\security',
+    systemRoot + '\\speech',
+    systemRoot + '\\system',
+    systemRoot + '\\tapi',
+    systemRoot + '\\tasks',
+    systemRoot + '\\temp',
+    systemRoot + '\\tracing',
+    systemRoot + '\\web',
+    programData,
+    allUsersProfile,
+    publicProfile,
+    'c:\\program files',
+    'c:\\program files (x86)',
+    'c:\\users\\default',
+    'c:\\users\\public',
+    'c:\\perflogs',
+    'c:\\recovery',
+    'c:\\system.sav'
+  ];
+
+  for (const sysPath of systemPaths) {
+    if (normalized === sysPath || normalized.startsWith(sysPath + '\\')) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // 获取所有用户和常见路径下的符号链接
@@ -126,7 +242,8 @@ function findAllLinks() {
             type: linkType,
             isDirectory: isDir,
             targetExists: targetExists,
-            parentDir: path.dirname(fullPath)
+            parentDir: path.dirname(fullPath),
+            isSystem: isSystemPath(fullPath)
           });
         } else if (entry.isDirectory() && !entry.name.startsWith('.') && depth < maxDepth) {
           // 跳过一些特殊目录
