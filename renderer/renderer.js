@@ -1,5 +1,8 @@
 // 全局状态
 let allLinks = [];
+let systemLinks = [];
+let userLinks = [];
+let activeTab = 'all'; // 'all' | 'system' | 'user'
 let editingLink = null; // null 表示新建，否则为编辑的链接对象
 let pendingConfirm = null; // 待确认的操作
 
@@ -29,6 +32,11 @@ function bindEvents() {
   $('refreshBtn').addEventListener('click', loadLinks);
   $('createBtn').addEventListener('click', () => openCreateDialog());
   $('searchInput').addEventListener('input', filterLinks);
+
+  // 页签切换
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
 
   // 对话框事件
   $('closeModalBtn').addEventListener('click', closeLinkDialog);
@@ -69,7 +77,10 @@ async function loadLinks() {
 
   if (result.success) {
     allLinks = result.data;
-    renderLinks(allLinks);
+    systemLinks = allLinks.filter(l => l.isSystem);
+    userLinks = allLinks.filter(l => !l.isSystem);
+    updateTabCounts();
+    renderLinksByTab();
     $('linkCount').textContent = `共 ${allLinks.length} 个链接`;
   } else {
     showToast('加载失败: ' + result.error, 'error');
@@ -91,6 +102,51 @@ function renderLinks(links) {
 
   links.forEach(link => {
     list.appendChild(createLinkCard(link));
+  });
+}
+
+// 根据当前tab渲染
+function renderLinksByTab() {
+  let links;
+  switch (activeTab) {
+    case 'system':
+      links = systemLinks;
+      break;
+    case 'user':
+      links = userLinks;
+      break;
+    default:
+      links = allLinks;
+  }
+  renderLinks(links);
+  $('linkCount').textContent = `共 ${links.length} 个链接`;
+}
+
+// 切换页签
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  // 清空搜索框
+  $('searchInput').value = '';
+  renderLinksByTab();
+}
+
+// 更新页签计数
+function updateTabCounts() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const tab = btn.dataset.tab;
+    const badge = btn.querySelector('.tab-badge');
+    if (badge) {
+      if (tab === 'all') {
+        badge.textContent = allLinks.length;
+      } else if (tab === 'system') {
+        badge.textContent = systemLinks.length;
+      } else if (tab === 'user') {
+        badge.textContent = userLinks.length;
+      }
+    }
   });
 }
 
@@ -163,16 +219,31 @@ function getTypeLabel(type) {
 // 过滤链接
 function filterLinks() {
   const keyword = $('searchInput').value.toLowerCase().trim();
+
+  let sourceLinks;
+  switch (activeTab) {
+    case 'system':
+      sourceLinks = systemLinks;
+      break;
+    case 'user':
+      sourceLinks = userLinks;
+      break;
+    default:
+      sourceLinks = allLinks;
+  }
+
   if (!keyword) {
-    renderLinks(allLinks);
+    renderLinks(sourceLinks);
+    $('linkCount').textContent = `共 ${sourceLinks.length} 个链接`;
     return;
   }
-  const filtered = allLinks.filter(link =>
+  const filtered = sourceLinks.filter(link =>
     link.name.toLowerCase().includes(keyword) ||
     link.path.toLowerCase().includes(keyword) ||
     link.target.toLowerCase().includes(keyword)
   );
   renderLinks(filtered);
+  $('linkCount').textContent = `找到 ${filtered.length} 个链接 (共 ${sourceLinks.length} 个)`;
 }
 
 // 打开创建对话框
